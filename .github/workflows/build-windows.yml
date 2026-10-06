@@ -73,17 +73,25 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path "release_package" -Force
 
-          # Copy bundled binaries and DLLs
-          Copy-Item -Path "dist" -Destination "release_package" -Recurse
+          # Copy the compiled binary and all bundled DLLs
+          if (Test-Path "dist/windows") {
+            Copy-Item -Path "dist/windows" -Destination "release_package/dist/windows" -Recurse -Force
+            New-Item -ItemType Directory -Path "release_package/out/windows/bin" -Force
+            Copy-Item -Path "out/windows/bin/bb-probe.exe" -Destination "release_package/out/windows/bin/" -Force
+          } elseif (Test-Path "dist") {
+            Copy-Item -Path "dist" -Destination "release_package/dist" -Recurse -Force
+            New-Item -ItemType Directory -Path "release_package/out/windows/bin" -Force
+            Copy-Item -Path "out/windows/bin/bb-probe.exe" -Destination "release_package/out/windows/bin/" -Force
+          }
 
           # Copy game scripts, patches, and shaders
-          Copy-Item -Path "scripts" -Destination "release_package" -Recurse
-          Copy-Item -Path "patches" -Destination "release_package" -Recurse
-          if (Test-Path "fsr4_shaders") { Copy-Item -Path "fsr4_shaders" -Destination "release_package" -Recurse }
-          if (Test-Path "docs") { Copy-Item -Path "docs" -Destination "release_package" -Recurse }
+          Copy-Item -Path "scripts" -Destination "release_package/scripts" -Recurse -Force
+          if (Test-Path "patches") { Copy-Item -Path "patches" -Destination "release_package/patches" -Recurse -Force }
+          if (Test-Path "fsr4_shaders") { Copy-Item -Path "fsr4_shaders" -Destination "release_package/fsr4_shaders" -Recurse -Force }
+          if (Test-Path "docs") { Copy-Item -Path "docs" -Destination "release_package/docs" -Recurse -Force }
 
-          # Copy launchers and trainers
-          Copy-Item -Path @(
+          # Copy launchers, trainers, and support files individually (skip missing)
+          $files = @(
             "start_windows.cmd",
             "start_trainer.cmd",
             "run_windows.py",
@@ -91,11 +99,15 @@ jobs:
             "bloodborne_trainer.py",
             "windows_graphics.py",
             "windows_graphics_ui.py",
-            "README.md"
-          ) -Destination "release_package"
+            "README.md",
+            "LICENSE"
+          )
+          foreach ($f in $files) {
+            if (Test-Path $f) { Copy-Item -Path $f -Destination "release_package/" -Force }
+          }
 
           # Compress to zip
-          Compress-Archive -Path "release_package\*" -DestinationPath "Bloodborne-bbport-Windows-x64.zip"
+          Compress-Archive -Path "release_package\*" -DestinationPath "Bloodborne-bbport-Windows-x64.zip" -Force
 
       - name: Upload compiled zip artifact
         uses: actions/upload-artifact@v4
