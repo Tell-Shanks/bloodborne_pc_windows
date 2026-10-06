@@ -25,9 +25,10 @@ The Windows additions include:
 - A MinGW UCRT64 build, Windows guest threads/TLS, shared memory mapping, exception handling, files and saves, and a native SDL3/Vulkan presenter.
 - Fixes for the opening-video stop/EOF lifecycle and Windows audio-buffer timing.
 - A Chinese launcher with automatic/Chinese/English game language, fullscreen/windowed modes, optional Xbox button mapping, and a controller-operated character-name keyboard.
-- Independent output resolution and graphics quality, FSR 3.1, optional FSR 4 v07 INT8, TAA, effects, and 30/60/90/display-paced frame-rate choices. 90 FPS and display-paced modes are experimental. **FSR 4.1.1 Windows adaptation is pending and cannot be selected in this launcher.**
+- Independent output resolution and graphics quality, FSR 3.1, optional FSR 4 v07 INT8, DLSS 4 / DLAA (NVIDIA RTX, through a separate MSVC-built bridge DLL), TAA, effects with a continuous chromatic-aberration strength, and 30/60/90/display-paced frame-rate choices. 90 FPS and display-paced modes are experimental. **FSR 4.1.1 Windows adaptation is pending and cannot be selected in this launcher.**
+- A dark/light launcher theme (follows the Windows preference and switches live) with a poster-artwork header; the FPS counter shows the DLSS version and the upscaling input/output sizes.
 
-**This publication contains source code, not a prebuilt Windows release or game data.** Bring your own decrypted CUSA03173 or CUSA03023 v1.09 game directory. FSR 4 model/shader assets are downloaded separately by the included Windows tool; FSR 3.1 needs no model download.
+**This publication contains source code, not a prebuilt Windows release or game data.** Bring your own decrypted CUSA03173 or CUSA03023 v1.09 game directory. FSR 4 model/shader assets are downloaded separately by the included Windows tool; FSR 3.1 needs no model download. DLSS 4 needs your own compatible `nvngx_dlss.dll` (not distributed here); drop it in the `dlss` folder or point the launcher at its directory.
 
 ```powershell
 git clone --branch codex/windows-port --recurse-submodules https://github.com/yaonikaixin999999/bloodborne_pc_windows.git
@@ -36,7 +37,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build_windows.ps1 -MsysRoo
 python .\run_windows.py --gui
 ```
 
-Install the prerequisites in the [Windows guide](docs/WINDOWS.md) first; it lists the MSYS2 dependencies, game-directory layout, and settings. Latest automated validation: **16/16 CTest and 74/74 Python tests passed**.
+Install the prerequisites in the [Windows guide](docs/WINDOWS.md) first; it lists the MSYS2 dependencies, game-directory layout, and settings. Automated validation: **16/16 CTest** plus a **122-test Python suite** (now including DLSS settings and launcher UI coverage; the `run.sh` cases need a Linux checkout).
 
 This derivative retains the upstream **GPL-2.0-or-later** license ([LICENSE](LICENSE)). The renderer derives from shadPS4; FSR-Vulkan, AMD FidelityFX, Dear ImGui, LibAtrac9, and other dependencies retain their own notices. Credits below apply to this Windows project too. The project is not affiliated with Sony Interactive Entertainment, FromSoftware, or AMD.
 

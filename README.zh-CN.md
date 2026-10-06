@@ -11,11 +11,12 @@
 - 原生 MinGW UCRT64 构建，以及 Windows 线程、TLS、内存映射、异常恢复、文件和存档接口。
 - Windows SDL3/Vulkan 窗口输出；修复开场视频停止/结束时的线程竞争，以及音频等待导致的长停顿和缓冲突发。
 - 中文启动器，支持游戏语言自动检测、简体/繁体/英语、窗口/全屏、可选 Xbox 按键映射及手柄操作的角色命名键盘。
-- 独立分辨率与画质档位，FSR 3.1、可选 FSR 4 v07 INT8、TAA、特效和模型细节设置；30/60/90/跟随显示器帧率选项，后两项为实验功能。
+- 独立分辨率与画质档位，FSR 3.1、可选 FSR 4 v07 INT8、DLSS 4 / DLAA（NVIDIA RTX）、TAA、特效和模型细节设置，色差强度可 0–2 连续调节；30/60/90/跟随显示器帧率选项，后两项为实验功能。
+- 深色 / 浅色主题启动器（跟随 Windows 偏好，可一键切换），海报画框标题区；帧率显示附 DLSS 版本与上采样输入/输出分辨率。
 
 **FSR 4.1.1 的 Windows 适配尚未完成，启动器不能新选该模式。** FSR 4 v07 INT8 已完成资源校验和一次独立 1080p 基准运行，游戏内及 4K FSR 4 表现仍需验证，详情见验证记录。
 
-**本次开源发布仅含源码，没有预编译 Windows 安装包，也没有游戏数据。** 运行需要自行准备已解密的 CUSA03173 或 CUSA03023、版本 1.09 的游戏目录。FSR 3.1 无须额外模型，FSR 4 模型/着色器使用仓库中的 Windows 工具单独下载。
+**本次开源发布仅含源码，没有预编译 Windows 安装包，也没有游戏数据。** 运行需要自行准备已解密的 CUSA03173 或 CUSA03023、版本 1.09 的游戏目录。FSR 3.1 无须额外模型，FSR 4 模型/着色器使用仓库中的 Windows 工具单独下载；DLSS 4 需要自备兼容的 `nvngx_dlss.dll`（不随仓库分发），放入 `dlss` 目录或在启动器中指定。
 
 ```powershell
 git clone --branch codex/windows-port --recurse-submodules https://github.com/yaonikaixin999999/bloodborne_pc_windows.git
@@ -24,7 +25,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build_windows.ps1 -MsysRoo
 python .\run_windows.py --gui
 ```
 
-先按[构建说明](docs/WINDOWS.md)安装 Python、MSYS2 UCRT64 和依赖。自动验证已通过 **16/16 项 CTest 和 74/74 项 Python 测试**。这表示被测试的接口和配置流程通过，不代表全游戏或所有电脑都能稳定运行。
+先按[构建说明](docs/WINDOWS.md)安装 Python、MSYS2 UCRT64 和依赖。自动验证：**16/16 项 CTest**，以及 **122 项 Python 测试**（含 DLSS 设置与启动器界面覆盖；依赖 `run.sh` 的用例需在 Linux 检出环境运行）。这表示被测试的接口和配置流程通过，不代表全游戏或所有电脑都能稳定运行。
 
 项目沿用上游 **GPL-2.0-or-later** 许可，完整文本见 [LICENSE](LICENSE)。图形实现基于 [shadPS4](https://github.com/shadps4-emu/shadPS4)，FSR-Vulkan、AMD FidelityFX、Dear ImGui、LibAtrac9 等依赖保留各自许可和署名。Windows 修改不代表整个项目从零原创；上游作者及社区补丁贡献者的工作仍是本项目基础。
 
