@@ -229,9 +229,11 @@ bool TemporalUpscaler::Active() const {
 }
 
 bool TemporalUpscaler::ReactiveOn() const {
-    // FSR 4 takes no reactive mask: the opaque snapshot and the mask pass would be wasted.
+    // FSR 4 and DLSS take no reactive mask: the opaque snapshot and the mask pass would be
+    // wasted work for them.
     return BbSettings::Get().reactive && !BbToggle::Disabled(1u << 27) && !UseFsr4() &&
-           BbSettings::Get().upscaler != BbSettings::UpscalerTaa;
+           BbSettings::Get().upscaler != BbSettings::UpscalerTaa &&
+           BbSettings::Get().upscaler != BbSettings::UpscalerDlss;
 }
 
 void TemporalUpscaler::OnSceneColor(VideoCore::ImageId color) {
