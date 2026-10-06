@@ -1,0 +1,100 @@
+name: Build Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/windows-port
+      - main
+
+jobs:
+  build:
+    name: Build Native Windows Port
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup MSYS2 UCRT64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-sdl3
+            mingw-w64-ucrt-x86_64-vulkan-headers
+            mingw-w64-ucrt-x86_64-vulkan-loader
+            mingw-w64-ucrt-x86_64-vulkan-memory-allocator
+            mingw-w64-ucrt-x86_64-ffmpeg
+            mingw-w64-ucrt-x86_64-boost
+            mingw-w64-ucrt-x86_64-fmt
+            mingw-w64-ucrt-x86_64-robin-map
+            mingw-w64-ucrt-x86_64-xxhash
+            mingw-w64-ucrt-x86_64-zydis
+            mingw-w64-ucrt-x86_64-glslang
+            mingw-w64-ucrt-x86_64-spirv-tools
+            mingw-w64-ucrt-x86_64-spirv-cross
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-binutils
+
+      - name: Compile Windows binary
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\build_windows.ps1 -MsysRoot "C:\msys64" -Jobs 4
+
+      - name: Bundle runtime DLLs and dependencies
+        shell: powershell
+        run: |
+          $env:Path = "C:\msys64\ucrt64\bin;$env:Path"
+          python scripts/package_windows.py --prefix "C:\msys64\ucrt64"
+
+      - name: Pre-fetch FSR compute shaders (Optional)
+        shell: powershell
+        run: |
+          python tools/fetch_fsr4_assets_windows.py
+        continue-on-error: true
+
+      - name: Assemble portable release package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path "release_package"
+
+          # Copy bundled binaries and DLLs
+          Copy-Item -Path "dist" -Destination "release_package" -Recurse
+
+          # Copy game scripts, patches, and shaders
+          Copy-Item -Path "scripts" -Destination "release_package" -Recurse
+          Copy-Item -Path "patches" -Destination "release_package" -Recurse
+          if (Test-Path "fsr4_shaders") { Copy-Item -Path "fsr4_shaders" -Destination "release_package" -Recurse }
+          if (Test-Path "docs") { Copy-Item -Path "docs" -Destination "release_package" -Recurse }
+
+          # Copy launchers and trainers
+          Copy-Item -Path @(
+            "start_windows.cmd",
+            "start_trainer.cmd",
+            "run_windows.py",
+            "trainer_windows.py",
+            "bloodborne_trainer.py",
+            "windows_graphics.py",
+            "windows_graphics_ui.py",
+            "README.md"
+          ) -Destination "release_package"
+
+          # Compress to zip
+          Compress-Archive -Path "release_package\*" -DestinationPath "Bloodborne-bbport-Windows-x64.zip"
+
+      - name: Upload compiled zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bloodborne-bbport-Windows-x64
+          path: Bloodborne-bbport-Windows-x64.zip
+          retention-days: 14
