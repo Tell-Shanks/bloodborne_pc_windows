@@ -41,10 +41,10 @@ public:
         if (!reported) {
             const char* mode=frame.width==frame.output.width?"DLAA":"Super Resolution";
             std::string version=description.substr(0,description.find(" | "));
+            std::string prefix=version.empty()?"DLSS":"DLSS "+version;
             char text[160];
-            std::snprintf(text,sizeof(text),"%s | %ux%u -> %ux%u (%s)",
-                version.empty()?"DLSS":version.c_str(),frame.width,frame.height,
-                frame.output.width,frame.output.height,mode);
+            std::snprintf(text,sizeof(text),"%s  %ux%u -> %ux%u",prefix.c_str(),
+                frame.width,frame.height,frame.output.width,frame.output.height);
             frame_info=text;
             std::printf("DLSS: active input %ux%u -> %ux%u (%s)\n",frame.width,frame.height,
                 frame.output.width,frame.output.height,mode);

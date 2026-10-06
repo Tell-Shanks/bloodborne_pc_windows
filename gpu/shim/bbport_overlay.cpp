@@ -464,16 +464,16 @@ void FpsCounter() {
                      ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
                      ImGuiWindowFlags_NoFocusOnAppearing);
     const auto& s = BbSettings::Get();
-    ImGui::Text("%.0f FPS  %.1f мс  %s", frame_ms_avg > 0.0f ? 1000.0f / frame_ms_avg : 0.0f,
-                frame_ms_avg,
+    const char* method =
                 s.upscaler == BbSettings::UpscalerFsr3   ? "FSR 3.1"
                 : s.upscaler == BbSettings::UpscalerFsr4 ? "FSR 4"
                 : s.upscaler == BbSettings::UpscalerFsr411 ? "FSR 4.1.1"
                 : s.upscaler == BbSettings::UpscalerTaa ? "TAA"
-                : s.upscaler == BbSettings::UpscalerDlss ? "DLSS 4"
-                                                         : "");
-    if (s.upscaler == BbSettings::UpscalerDlss)
-        if (const char* info = s.dlss_frame.load()) ImGui::TextUnformatted(info);
+                : s.upscaler == BbSettings::UpscalerDlss ? "DLSS"
+                                                         : "";
+    const char* info = s.upscaler == BbSettings::UpscalerDlss ? s.dlss_frame.load() : nullptr;
+    ImGui::Text("%.0f FPS  %.1f мс  %s", frame_ms_avg > 0.0f ? 1000.0f / frame_ms_avg : 0.0f,
+                frame_ms_avg, info && *info ? info : method);
     ImGui::End();
 }
 
