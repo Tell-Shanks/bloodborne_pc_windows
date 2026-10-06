@@ -47,18 +47,23 @@ jobs:
             mingw-w64-ucrt-x86_64-binutils
 
       - name: Compile Windows binary
-        shell: powershell
+        shell: msys2 {0}
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File .\build_windows.ps1 -MsysRoot "C:\msys64" -Jobs 4
+          cmake -S . -B out/windows -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DBB_LTO=OFF \
+            -DBB_DIAGNOSTIC_ONLY=OFF
+          cmake --build out/windows --parallel 4
 
       - name: Bundle runtime DLLs and dependencies
-        shell: powershell
+        shell: msys2 {0}
         run: |
-          $env:Path = "C:\msys64\ucrt64\bin;$env:Path"
-          python scripts/package_windows.py --prefix "C:\msys64\ucrt64"
+          python scripts/package_windows.py --prefix /ucrt64
 
       - name: Pre-fetch FSR compute shaders (Optional)
-        shell: powershell
+        shell: msys2 {0}
         run: |
           python tools/fetch_fsr4_assets_windows.py
         continue-on-error: true
@@ -66,7 +71,7 @@ jobs:
       - name: Assemble portable release package
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Path "release_package"
+          New-Item -ItemType Directory -Path "release_package" -Force
 
           # Copy bundled binaries and DLLs
           Copy-Item -Path "dist" -Destination "release_package" -Recurse
