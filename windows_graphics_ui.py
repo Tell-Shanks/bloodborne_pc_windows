@@ -273,13 +273,16 @@ class GraphicsPanel(ttk.Frame):
 
         self._heading(effects, '游戏特效', '按喜好调整画面风格与细节。')
         self._choice(effects, 2, '模型细节', 'model_lod', LOD_LABELS)
-        effect_keys = ('effect_chromatic_aberration', 'effect_dof', 'effect_motion_blur',
+        effect_keys = ('effect_dof', 'effect_motion_blur',
                        'effect_ssao', 'effect_game_aa', 'effect_dynamic_shadows', 'effect_ssr')
         for row, key in enumerate(effect_keys, 3):
             self._check(effects, row, key)
-        ttk.Separator(effects).grid(row=10, column=0, columnspan=2, sticky='ew', pady=px(12))
-        self._check(effects, 11, 'show_fps')
-        self._check(effects, 12, 'skip_intro')
+        self._number(effects, 9, '色差强度', 'effect_chromatic_aberration', 0, 2)
+        ttk.Label(effects, text='0 为关闭色差，1 为游戏原版强度。', style='Muted.TLabel').grid(
+            row=10, column=0, columnspan=2, sticky='w', pady=(0, px(4)))
+        ttk.Separator(effects).grid(row=11, column=0, columnspan=2, sticky='ew', pady=px(12))
+        self._check(effects, 12, 'show_fps')
+        self._check(effects, 13, 'skip_intro')
 
         self._heading(advanced, '高级选项', '仅显示当前算法相关的选项；通常保留现有值即可。')
         temporal = self._group(advanced, 2, 'temporal')

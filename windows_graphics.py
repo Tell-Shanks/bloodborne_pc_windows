@@ -19,7 +19,7 @@ LOD_LABELS = {'最高细节': '-2', '游戏原版': '0', '较低细节': '1', '�
 BOOLEAN_LABELS = {
     'sharpen': '画面锐化', 'jitter': '时序采样', 'object_motion': '角色运动向量',
     'reactive': '透明物体响应遮罩', 'fsr4_auto_exposure': 'FSR 4 自动曝光',
-    'effect_chromatic_aberration': '色差效果', 'effect_dof': '景深（DoF）',
+    'effect_dof': '景深（DoF）',
     'effect_motion_blur': '运动模糊', 'effect_ssao': '环境遮蔽（SSAO）',
     'effect_game_aa': '游戏自带抗锯齿', 'effect_dynamic_shadows': '动态光源阴影',
     'effect_ssr': '屏幕空间反射（SSR）', 'show_fps': '显示帧率', 'skip_intro': '跳过开场动画',
@@ -51,7 +51,8 @@ def validate_settings(updates):
         if key in BOOLEAN_LABELS and text not in ('0', '1'):
             raise ValueError(f'选项必须为开或关：{BOOLEAN_LABELS[key]}')
         ranges = {'dlss_scale': (33,100), 'sharpness': (0, 2), 'reactive_scale': (0, 16),
-                  'reactive_threshold': (0, 1), 'reactive_max': (0, 1)}
+                  'reactive_threshold': (0, 1), 'reactive_max': (0, 1),
+                  'effect_chromatic_aberration': (0, 2)}
         if key in ranges:
             lo, hi = ranges[key]
             try: amount = float(text)

@@ -7,6 +7,7 @@ image places eboot vaddr 0 at image offset 0. Only literal writes are supported
 """
 import argparse
 import json
+import math
 import os
 import struct
 import sys
@@ -27,7 +28,6 @@ RESOLUTION_TEMPLATE='Resolution Patch 1280x720 (16:9)'
 # Effect switches (bbport.ini, in-game menu, launcher): key -> (patch when the key is 0, patch
 # when it is 1). The game reads these at start; a change applies after a restart.
 EFFECTS={
-    'effect_chromatic_aberration':('Disable Chromatic Aberration',None),
     'effect_dof':('Disable DoF',None),
     'effect_motion_blur':('Disable Motion Blur (perf increase)',None),
     'effect_ssao':('Disable SSAO',None),
@@ -38,8 +38,39 @@ EFFECTS={
     'debug_camera':(None,'Restore Debug Camera'),
     'debug_menu':(None,'Restore Debug Menu (READ NOTES)'),
 }
+# Chromatic aberration strength. The game loads its own value from the stack into the
+# post-process parameter; the community disable patch replaces that store with a literal
+# zero ("mov dword [rbx+0xAC], 0" + two NOPs). Any other 0..2 strength writes that float
+# into the same instruction instead: 0 disables the effect, 1 keeps the game's own path.
+CHROMATIC_TEMPLATE='Disable Chromatic Aberration'
+CHROMATIC_PREFIX=bytes.fromhex('c783ac000000')
+CHROMATIC_SUFFIX=b'\x90\x90'
 # model_lod: -2 highest, 0 the game's, 1 lower, 2 lowest.
 MODEL_LOD={'-2':'Model LOD -2 (Highest)','1':'Model LOD 1 (Lower)','2':'Model LOD 2 (Lowest)'}
+
+
+def chromatic_amount(settings):
+    """None when unset; otherwise the requested strength, validated to 0..2."""
+    raw=settings.get('effect_chromatic_aberration')
+    if raw is None: return None
+    try:
+        amount=float(raw)
+    except ValueError:
+        raise ValueError(f'unsupported effect_chromatic_aberration value: {raw!r}') from None
+    if not math.isfinite(amount) or not 0.0<=amount<=2.0:
+        raise ValueError('effect_chromatic_aberration must be between 0 and 2')
+    return amount
+
+
+def chromatic_writes(xml,amount,app_version,segments):
+    """The disable patch's instruction with the immediate set to the chosen strength."""
+    writes=compile_patches(xml,[CHROMATIC_TEMPLATE],app_version,segments)
+    if len(writes)!=1:
+        raise ValueError('unexpected chromatic aberration patch layout')
+    offset,data=writes[0]
+    if len(data)!=12 or data[:6]!=CHROMATIC_PREFIX or data[10:]!=CHROMATIC_SUFFIX:
+        raise ValueError('unexpected chromatic aberration patch bytes')
+    return [(offset,CHROMATIC_PREFIX+struct.pack('<f',amount)+CHROMATIC_SUFFIX)]
 
 
 def validate_patch_requirements(names, game):
@@ -277,9 +308,15 @@ def main():
         return
     names=FPS_PRESETS[a.fps]+[n.strip() for n in a.extra.split(';') if n.strip()]
     names+=[n for n in effect_patches(read_settings(a.settings)) if n not in names]
+    chromatic=chromatic_amount(read_settings(a.settings))
+    if chromatic==0.0 and CHROMATIC_TEMPLATE not in names:
+        names.append(CHROMATIC_TEMPLATE)
     validate_patch_requirements(names,a.game_dir)
     segments=eboot_segments((a.out/'eboot.elf').read_bytes())
     writes=compile_patches(a.xml,names,a.app_version,segments)
+    if chromatic not in (None,0.0,1.0):
+        writes+=chromatic_writes(a.xml,chromatic,a.app_version,segments)
+        print(f'Patches: chromatic aberration strength {chromatic:g}')
     size=render_size(read_settings(a.settings),a.render_res) if a.render_res else None
     # The UI keeps the game's 1920x1080 coordinates even for a larger output: the port draws
     # it into the output-size image with a viewport scaled by output / 1920

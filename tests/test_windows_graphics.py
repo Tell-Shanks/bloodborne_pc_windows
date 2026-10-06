@@ -44,7 +44,7 @@ def game_fixture(root):
 
 CUSTOM_SETTINGS = {
     'upscaler': 'fsr4', 'preset': '2', 'output_res': '3840x2160',
-    'sharpness': '0.74', 'sharpen': '0', 'effect_chromatic_aberration': '1',
+    'sharpness': '0.74', 'sharpen': '0', 'effect_chromatic_aberration': '1.00',
     'effect_motion_blur': '1', 'effect_dof': '0', 'effect_ssao': '0',
     'effect_ssr': '1', 'model_lod': '-2', 'show_fps': '0',
     'debug_camera': '1', 'future_renderer_option': 'keep-this',
@@ -104,7 +104,8 @@ class GraphicsSettingsTests(unittest.TestCase):
 
     def test_numeric_boundaries_and_nonfinite_values(self):
         for key, low, high in (('sharpness', 0, 2), ('reactive_scale', 0, 16),
-                               ('reactive_threshold', 0, 1), ('reactive_max', 0, 1)):
+                               ('reactive_threshold', 0, 1), ('reactive_max', 0, 1),
+                               ('effect_chromatic_aberration', 0, 2)):
             for value in (low, high):
                 with self.subTest(key=key, value=value):
                     self.assertEqual(graphics.validate_settings({key: value})[key], f'{value:.2f}')
