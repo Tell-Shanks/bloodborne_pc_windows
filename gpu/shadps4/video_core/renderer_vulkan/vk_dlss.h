@@ -39,8 +39,15 @@ public:
         if (!eval(&frame)) return Fail(error());
         if (info && !reported) description=info();
         if (!reported) {
+            const char* mode=frame.width==frame.output.width?"DLAA":"Super Resolution";
+            std::string version=description.substr(0,description.find(" | "));
+            char text[160];
+            std::snprintf(text,sizeof(text),"%s | %ux%u -> %ux%u (%s)",
+                version.empty()?"DLSS":version.c_str(),frame.width,frame.height,
+                frame.output.width,frame.output.height,mode);
+            frame_info=text;
             std::printf("DLSS: active input %ux%u -> %ux%u (%s)\n",frame.width,frame.height,
-                frame.output.width,frame.output.height,frame.width==frame.output.width?"DLAA":"Super Resolution");
+                frame.output.width,frame.output.height,mode);
             reported=true;
         }
         return true;
@@ -50,10 +57,12 @@ public:
     }
     const char* Problem() const { return problem.c_str(); }
     const char* Description() const { return description.c_str(); }
+    /// "version | input -> output (mode)", set once the first frame is evaluated.
+    const char* FrameInfo() const { return frame_info.c_str(); }
 private:
     bool Fail(const char* text) { problem=text; failed=true; std::printf("DLSS: %s\n",text); return false; }
     bool failed=false,reported=false;
-    std::string problem,description;
+    std::string problem,description,frame_info;
 #ifdef _WIN32
     HMODULE module=nullptr;
     BbDlssEval eval=nullptr;

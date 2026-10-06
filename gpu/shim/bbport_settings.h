@@ -75,6 +75,7 @@ struct Values {
     std::atomic<const char*> fsr4_problem{nullptr};
     std::atomic<const char*> dlss_problem{nullptr};
     std::atomic<const char*> dlss_status{nullptr};
+    std::atomic<const char*> dlss_frame{nullptr}; ///< "version | input -> output (mode)"
     std::atomic<bool> fsr4_supported{false}, fsr411_supported{false};
 
     /// Startup settings for the explicit BB_RENDER_RES compatibility patch only.

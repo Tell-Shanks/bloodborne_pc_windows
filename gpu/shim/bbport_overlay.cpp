@@ -253,6 +253,7 @@ void Menu() {
         ImGui::EndCombo();
     }
     if (s.upscaler == BbSettings::UpscalerDlss) if (const char* status = s.dlss_status.load()) ImGui::TextWrapped("DLSS active: %s", status);
+    if (s.upscaler == BbSettings::UpscalerDlss) if (const char* info = s.dlss_frame.load()) ImGui::TextWrapped("%s", info);
     if (const char* problem = s.dlss_problem.load()) ImGui::TextWrapped("DLSS unavailable: %s", problem);
     if (const char* problem = s.fsr4_problem.load()) {
         ImGui::PushTextWrapPos();
@@ -469,7 +470,10 @@ void FpsCounter() {
                 : s.upscaler == BbSettings::UpscalerFsr4 ? "FSR 4"
                 : s.upscaler == BbSettings::UpscalerFsr411 ? "FSR 4.1.1"
                 : s.upscaler == BbSettings::UpscalerTaa ? "TAA"
+                : s.upscaler == BbSettings::UpscalerDlss ? "DLSS 4"
                                                          : "");
+    if (s.upscaler == BbSettings::UpscalerDlss)
+        if (const char* info = s.dlss_frame.load()) ImGui::TextUnformatted(info);
     ImGui::End();
 }
 

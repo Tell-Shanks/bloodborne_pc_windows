@@ -307,6 +307,7 @@ bool TemporalUpscaler::OnFrameStart() {
         fsr4 = std::make_unique<Fsr4Upscaler>(instance, scheduler);
         BbSettings::Get().dlss_problem = nullptr;
         BbSettings::Get().dlss_status = nullptr;
+        BbSettings::Get().dlss_frame = nullptr;
         dlss = std::make_unique<DlssUpscaler>();
         if (BbSettings::IsFsr4(upscaler)) BbSettings::Get().fsr4_problem = nullptr;
     }
@@ -1932,6 +1933,7 @@ bool TemporalUpscaler::RecordDlss(vk::CommandBuffer cmd, Fsr4Upscaler::Image col
         BbSettings::Get().dlss_problem=dlss->Problem(); failed=true; return false;
     }
     BbSettings::Get().dlss_status=dlss->Description();
+    BbSettings::Get().dlss_frame=dlss->FrameInfo();
     return true;
 }
 
