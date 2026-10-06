@@ -1,0 +1,18 @@
+{
+  "commit": "af199869c51cf2d71cc64d3db5064788ff38eb02",
+  "files": {
+    "LICENSE.txt": "21b5daec892b12bea692e66bc8fe45cf5902ccaf3a7b831e78050d8859881c37",
+    "lib/Windows_x86_64/rel/nvngx_dlss.dll": "139f682991c40b36695f0e9d8993901d276e0e7b1eefd5e5c88d74ae714020d4",
+    "include/nvsdk_ngx.h": "ef05db7498828e7273d300df7b87e7d6e0b447ef1a070f71b41b584aad83ce08",
+    "include/nvsdk_ngx_defs.h": "38a383370416ad0d72d9da219afa2837f45ffb4c4e0dbedfd5a66c906b33ffe6",
+    "include/nvsdk_ngx_defs_dlssd.h": "1e0931795ab666273759040ad82aee419f92b7e09a504d01d1f081d6e4055ac5",
+    "include/nvsdk_ngx_helpers.h": "abb8836c85b51ebbe065f0c704bb52805a6dddfec06674399ba8b9a7490be20c",
+    "include/nvsdk_ngx_helpers_dlssd.h": "0148e5d029198ce34d70508601e4f9dfad3cd2d0564a81b0f67c3ad66d0960c3",
+    "include/nvsdk_ngx_helpers_dlssd_vk.h": "0cf89f7aa80068989f07c5eaa59c792446daeec07ddf809990a48462836407e1",
+    "include/nvsdk_ngx_helpers_vk.h": "c25419bbbee7b605852c2bb65c44ba9735c7397aa05d4c2e3df7d36d7998727a",
+    "include/nvsdk_ngx_params.h": "4d5ef282bca94d56629fa31f80d1d66961cbab53b31d272aeb7cf9a9e0ee5cd4",
+    "include/nvsdk_ngx_params_dlssd.h": "d41e3ba8f1d72583b55273092c99bf426dc4a0d46de827229e25d5b1325a370e",
+    "lib/Windows_x86_64/x64/nvsdk_ngx_s.lib": "c5a68b9a5a804a4c743fbf94c266fdb8268ce74dc8665bb416a6021fe091c8c9",
+    "include/nvsdk_ngx_vk.h": "c5de5924b15a8929a0758f886b1ce5a8a948603c2096c5f6f5c89588ada1113c"
+  }
+}

@@ -224,7 +224,7 @@ bool TemporalUpscaler::Active() const {
     return enabled && !failed &&
            (BbSettings::Get().upscaler == BbSettings::UpscalerFsr3 ||
             BbSettings::IsFsr4(BbSettings::Get().upscaler) ||
-            BbSettings::Get().upscaler == BbSettings::UpscalerTaa) &&
+            (BbSettings::Get().upscaler == BbSettings::UpscalerTaa || BbSettings::Get().upscaler == BbSettings::UpscalerDlss)) &&
            !BbToggle::Disabled(1u << 24);
 }
 
@@ -303,6 +303,9 @@ bool TemporalUpscaler::OnFrameStart() {
         // A failed provider keeps a fatal flag internally; a user retry gets a fresh context.
         scheduler.Finish();
         fsr4 = std::make_unique<Fsr4Upscaler>(instance, scheduler);
+        BbSettings::Get().dlss_problem = nullptr;
+        BbSettings::Get().dlss_status = nullptr;
+        dlss = std::make_unique<DlssUpscaler>();
         if (BbSettings::IsFsr4(upscaler)) BbSettings::Get().fsr4_problem = nullptr;
     }
     if (applied_upscaler != upscaler) fsr4_failed = false; // retry after a menu change
@@ -363,13 +366,14 @@ void TemporalUpscaler::OnDispatch(u64 cs_hash) {
 
 bool TemporalUpscaler::EnsureResources(u32 w, u32 h, u32 ow, u32 oh, bool hdr) {
     const bool use_fsr4 = UseFsr4();
+    const bool use_dlss = BbSettings::Get().upscaler == BbSettings::UpscalerDlss;
     const bool use_taa = BbSettings::Get().upscaler == BbSettings::UpscalerTaa;
     if (use_taa && (w != ow || h != oh)) {
         std::printf("TAA: remove BB_RENDER_RES to use native-resolution TAA\n");
         return false;
     }
     if (resources_ready && w == width && h == height && ow == out_width && oh == out_height &&
-        hdr == context_hdr && use_fsr4 == resources_fsr4 && use_taa == resources_taa) {
+        hdr == context_hdr && use_fsr4 == resources_fsr4 && use_taa == resources_taa && use_dlss == resources_dlss) {
         return true;
     }
     const auto device = instance.GetDevice();
@@ -408,7 +412,7 @@ bool TemporalUpscaler::EnsureResources(u32 w, u32 h, u32 ow, u32 oh, bool hdr) {
     create_info.maxRenderSize = {w, h};
     create_info.maxOutputSize = {ow, oh};
     // FSR 4 has its own model context (vk_fsr4); the images below are shared.
-    if (!use_fsr4 && !use_taa) {
+    if (!use_fsr4 && !use_taa && !use_dlss) {
         if (const u64 issues = ffxVkPortableValidateUpscaleCreateInfo(&create_info)) {
             PrintIssues("create info", issues);
             return false;
@@ -509,9 +513,14 @@ bool TemporalUpscaler::EnsureResources(u32 w, u32 h, u32 ow, u32 oh, bool hdr) {
     resources_ready = true;
     resources_fsr4 = use_fsr4;
     resources_taa = use_taa;
+    resources_dlss = use_dlss;
     if (use_taa) {
         std::printf("TAA: context %ux%u -> %ux%u (%s), no FSR model\n", w, h, ow, oh,
                     hdr ? "HDR scene color" : "tonemapped frame");
+        return true;
+    }
+    if (use_dlss) {
+        std::printf("DLSS: resources %ux%u -> %ux%u\n",w,h,ow,oh);
         return true;
     }
     if (use_fsr4) {
@@ -1077,6 +1086,8 @@ void TemporalUpscaler::Run() {
     if (BbSettings::Get().upscaler == BbSettings::UpscalerTaa) {
         RecordTaa(cmdbuf, input_color_view, input_depth_view);
         dispatched = true;
+    } else if (BbSettings::Get().upscaler == BbSettings::UpscalerDlss) {
+        dispatched = RecordDlss(cmdbuf, {input_color,input_color_view,w,h}, {input_depth,input_depth_view,w,h}, color.info.pixel_format, depth_format,w,h,ow,oh,frame_ms);
     } else if (UseFsr4()) {
         dispatched = RecordFsr4(cmdbuf, {input_color, input_color_view, w, h},
                                 {input_depth, input_depth_view, w, h}, w, h, ow, oh, frame_ms);
@@ -1513,7 +1524,7 @@ void TemporalUpscaler::RunUiOnly(VideoCore::ImageId color_id, VideoCore::ImageId
 void TemporalUpscaler::RunScaled() {
     if (auto* profiler = GpuProfiler::Get()) {
         const char* label = BbSettings::Get().upscaler == BbSettings::UpscalerTaa
-            ? "upscaler RunScaled (TAA)" : "upscaler RunScaled (FSR)";
+            ? "upscaler RunScaled (TAA)" : BbSettings::Get().upscaler == BbSettings::UpscalerDlss ? "upscaler RunScaled (DLSS)" : "upscaler RunScaled (FSR)";
         profiler->Mark(0xF5A0'0000ull ^ std::hash<std::string_view>{}(label),
                        [label] { return std::string{label}; });
     }
@@ -1600,13 +1611,15 @@ void TemporalUpscaler::RunScaled() {
     last_frame = now;
 
     // bbport: FSR 4 writes its HDR-format output, copied into the output-size UI image.
-    if (UseFsr4() || BbSettings::Get().upscaler == BbSettings::UpscalerTaa) {
+    if (UseFsr4() || BbSettings::Get().upscaler == BbSettings::UpscalerTaa || BbSettings::Get().upscaler == BbSettings::UpscalerDlss) {
         barrier(vk::Image(output_image), vk::ImageAspectFlagBits::eColor,
                 vk::ImageLayout::eUndefined, all, vk::AccessFlagBits2::eNone,
                 vk::ImageLayout::eGeneral, all, rw);
         bool ok4 = true;
         if (BbSettings::Get().upscaler == BbSettings::UpscalerTaa) {
             RecordTaa(cmdbuf, color_view, depth_view);
+        } else if (BbSettings::Get().upscaler == BbSettings::UpscalerDlss) {
+            ok4 = RecordDlss(cmdbuf,{color_image,color_view,source_width,source_height},{depth_image,depth_view,source_width,source_height},color.info.pixel_format,depth_format,w,h,ow,oh,frame_ms);
         } else {
             ok4 = RecordFsr4(cmdbuf, {color_image, color_view, source_width, source_height},
                             {depth_image, depth_view, source_width, source_height}, w, h, ow,
@@ -1901,6 +1914,24 @@ bool TemporalUpscaler::DisplayOverride(VAddr address, Display& display) {
 } // namespace Vulkan
 
 namespace Vulkan {
+
+bool TemporalUpscaler::RecordDlss(vk::CommandBuffer cmd, Fsr4Upscaler::Image color, Fsr4Upscaler::Image depth,
+    vk::Format color_format, vk::Format depth_format, u32 w,u32 h,u32 ow,u32 oh,float frame_ms) {
+    BbDlssFrame f{};
+    f.cmd=cmd;
+    f.color={color.image,color.view,VkFormat(color_format),color.width,color.height};
+    f.depth={depth.image,depth.view,VkFormat(depth_format),depth.width,depth.height};
+    f.motion={vk::Image(motion_image),*motion_view,VK_FORMAT_R16G16_SFLOAT,w,h};
+    f.output={vk::Image(output_image),*output_view,VK_FORMAT_R16G16B16A16_SFLOAT,ow,oh};
+    f.width=w;f.height=h;f.preset=BbSettings::RenderPreset();f.reset=reset;f.hdr=context_hdr;
+    f.jitter_x=jitter[0];f.jitter_y=jitter[1];f.frame_ms=frame_ms;
+    if (!dlss->Record(instance.GetInstance(),instance.GetPhysicalDevice(),instance.GetDevice(),
+        VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr,VULKAN_HPP_DEFAULT_DISPATCHER.vkGetDeviceProcAddr,f)) {
+        BbSettings::Get().dlss_problem=dlss->Problem(); failed=true; return false;
+    }
+    BbSettings::Get().dlss_status=dlss->Description();
+    return true;
+}
 
 bool TemporalUpscaler::UseFsr4() const {
     const int selected = BbSettings::Get().upscaler;

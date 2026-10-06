@@ -24,7 +24,10 @@ float Clamp(float v, float lo, float hi) {
 void Set(Values& v, const std::string& key, const std::string& value) {
     const float f = float(std::atof(value.c_str()));
     const int i = std::atoi(value.c_str());
-    if (key == "upscaler") {
+    if (key == "dlss_mode") { v.dlss_mode=value;
+    } else if (key == "dlss_dir") { v.dlss_dir=value;
+    } else if (key == "dlss_scale") { v.dlss_scale=Clamp(f,33.0f,100.0f);
+    } else if (key == "upscaler") {
         for (int u = 0; u < UpscalerCount; ++u) {
             if (value == UpscalerName(u)) {
                 v.upscaler = u;
@@ -151,7 +154,7 @@ bool FixedRenderSession() {
 
 int RenderPreset() {
     const auto& v = Get();
-    return FixedRenderSession() ? v.startup_preset :
+    return (FixedRenderSession() || v.upscaler == UpscalerDlss) ? v.startup_preset :
         v.upscaler == UpscalerTaa ? NativeAA : v.preset.load();
 }
 
@@ -161,6 +164,7 @@ bool ResolutionNeedsRestart() {
     return FixedRenderSession() &&
         (v.preset != v.startup_preset || v.output_res != v.startup_output_res ||
          (v.upscaler == UpscalerOff) != (v.startup_upscaler == UpscalerOff) ||
+         (v.upscaler == UpscalerDlss) != (v.startup_upscaler == UpscalerDlss) ||
          (v.upscaler == UpscalerTaa) != (v.startup_upscaler == UpscalerTaa));
 }
 
@@ -191,6 +195,7 @@ void Save() {
     // Read by run.sh at start.
     std::fprintf(file, "live_resolution=%s\n", v.live_resolution < 0 ? "auto"
                                                   : v.live_resolution ? "1" : "0");
+    std::fprintf(file,"dlss_mode=%s\ndlss_scale=%.2f\ndlss_dir=%s\n",v.dlss_mode.c_str(),v.dlss_scale,v.dlss_dir.c_str());
     std::fclose(file);
 }
 
@@ -206,7 +211,7 @@ const char* PresetName(int preset) {
 }
 
 const char* UpscalerName(int upscaler) {
-    static constexpr const char* names[UpscalerCount] = {"off", "fsr3", "fsr4", "fsr411", "taa"};
+    static constexpr const char* names[UpscalerCount] = {"off", "fsr3", "fsr4", "fsr411", "taa", "dlss"};
     return names[std::clamp(upscaler, 0, UpscalerCount - 1)];
 }
 

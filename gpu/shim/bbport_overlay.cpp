@@ -226,8 +226,8 @@ void Menu() {
 
     ImGui::SeparatorText("Временной апскейлер");
     static const char* upscalers[] = {"Выкл", "FSR 3.1", "FSR 4 (INT8)", "FSR 4.1.1 (INT8)",
-                                     "TAA (нативное сглаживание)"};
-    static const char* later[] = {"DLSS", "XeSS"};
+                                     "TAA (нативное сглаживание)", "DLSS / DLAA"};
+    static const char* later[] = {"XeSS"};
     int upscaler = s.upscaler;
     if (ImGui::BeginCombo("Апскейлер", upscalers[upscaler])) {
         for (int i = 0; i < BbSettings::UpscalerCount; ++i) {
@@ -252,6 +252,8 @@ void Menu() {
         }
         ImGui::EndCombo();
     }
+    if (s.upscaler == BbSettings::UpscalerDlss) if (const char* status = s.dlss_status.load()) ImGui::TextWrapped("DLSS active: %s", status);
+    if (const char* problem = s.dlss_problem.load()) ImGui::TextWrapped("DLSS unavailable: %s", problem);
     if (const char* problem = s.fsr4_problem.load()) {
         ImGui::PushTextWrapPos();
         ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.3f, 1.0f), "FSR 4 недоступен: %s", problem);
@@ -278,6 +280,7 @@ void Menu() {
     const bool taa = s.upscaler == BbSettings::UpscalerTaa;
     ImGui::BeginDisabled(!upscaler_on);
     ImGui::BeginDisabled(taa);
+    if (s.upscaler == BbSettings::UpscalerDlss) ImGui::TextWrapped("DLSS mode and custom DLL: configure in Windows launcher, then restart.");
     int preset = taa ? BbSettings::NativeAA : s.preset.load();
     char preset_label[64];
     std::snprintf(preset_label, sizeof(preset_label), "%s (x%.1f)", BbSettings::PresetName(preset),

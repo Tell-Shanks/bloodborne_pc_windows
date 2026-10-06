@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'scripts'))
 from patches import read_settings, scaled_sizes, PRESET_SCALES
 
-UPSCALER_LABELS = {'FSR 3.1': 'fsr3', 'FSR 4（INT8）': 'fsr4',
+UPSCALER_LABELS = {'DLSS 4 / DLAA（NVIDIA RTX）': 'dlss', 'FSR 3.1': 'fsr3', 'FSR 4（INT8）': 'fsr4',
                    'FSR 4.1.1（Windows 适配待完成）': 'fsr411',
                    'TAA · 原生抗锯齿': 'taa', '关闭超分辨率': 'off'}
 PRESET_LABELS = {'原生画质 / Native AA': '0', '画质优先 / Quality': '1',
@@ -32,9 +32,9 @@ DEFAULTS = {
     'effect_chromatic_aberration': '0', 'effect_dof': '1', 'effect_motion_blur': '0',
     'effect_ssao': '1', 'effect_game_aa': '1', 'effect_dynamic_shadows': '1',
     'effect_ssr': '0', 'show_fps': '1', 'skip_intro': '0', 'model_lod': '0',
-    'live_resolution': '0',
+    'live_resolution': '0', 'dlss_mode':'quality', 'dlss_scale':'67', 'dlss_dir':'',
 }
-ENUMS = {'upscaler': set(UPSCALER_LABELS.values()), 'preset': set(PRESET_LABELS.values()),
+ENUMS = {'dlss_mode': {'dlaa','quality','balanced','performance','custom'}, 'upscaler': set(UPSCALER_LABELS.values()), 'preset': set(PRESET_LABELS.values()),
          'model_lod': set(LOD_LABELS.values()),
          'output_res': {'1280x720', '1920x1080', '2560x1440', '3840x2160'},
          'live_resolution': {'-1', 'auto', '0', '1'}}
@@ -50,7 +50,7 @@ def validate_settings(updates):
             raise ValueError(f'不支持的画面设置：{key}={text}')
         if key in BOOLEAN_LABELS and text not in ('0', '1'):
             raise ValueError(f'选项必须为开或关：{BOOLEAN_LABELS[key]}')
-        ranges = {'sharpness': (0, 2), 'reactive_scale': (0, 16),
+        ranges = {'dlss_scale': (33,100), 'sharpness': (0, 2), 'reactive_scale': (0, 16),
                   'reactive_threshold': (0, 1), 'reactive_max': (0, 1)}
         if key in ranges:
             lo, hi = ranges[key]

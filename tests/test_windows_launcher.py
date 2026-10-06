@@ -209,11 +209,13 @@ class WindowsLauncherTests(unittest.TestCase):
             with patch.object(launcher,'ROOT',root):
                 self.assertEqual(launcher.read_preferences(),{
                     'game_dir':'previous game','resolution':'4k-native',
-                    'language':'zh-tw','fullscreen':True,'controller_layout':'ps4','fps':'60'})
+                    'language':'zh-tw','fullscreen':True,'controller_layout':'ps4','fps':'60',
+                    'theme':'auto'})
                 launcher.save_preferences({'resolution':'1440p','language':'auto','fullscreen':False})
                 self.assertEqual(launcher.read_preferences(),{
                     'game_dir':'previous game','resolution':'1440p',
-                    'language':'auto','fullscreen':False,'controller_layout':'ps4','fps':'60'})
+                    'language':'auto','fullscreen':False,'controller_layout':'ps4','fps':'60',
+                    'theme':'auto'})
 
     def test_cli_display_flags_are_optional_and_mutually_exclusive(self):
         with patch.object(launcher.sys,'argv',['run_windows.py','--game','unused']), \

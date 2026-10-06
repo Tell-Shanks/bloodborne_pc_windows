@@ -23,3 +23,14 @@ perf.data
 /bloodborne_upscalers_*.md
 mods.json
 patches.json
+
+# Downloaded NVIDIA DLSS SDK/runtime (reproducible via manifest)
+/dlss/
+/gpu/third_party/dlss-sdk/nvsdk_*
+/gpu/third_party/dlss-sdk/LICENSE.txt
+
+# Local-only: game dump, downloaded bundles, config backups, artwork sources
+/game/
+/downloads/
+/bbport.ini.before-*
+*.jpg

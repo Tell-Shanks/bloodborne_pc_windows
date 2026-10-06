@@ -34,7 +34,7 @@ FPS_CHOICES=tuple(FPS_LABELS.values())
 
 def read_preferences():
     preferences={'game_dir':'','resolution':'1080p','language':'auto','fullscreen':False,
-                 'controller_layout':'ps4','fps':'60'}
+                 'controller_layout':'ps4','fps':'60','theme':'auto'}
     # Older launchers only saved launch.json. Recover the last profile on upgrade,
     # then prefer choices saved by the current launcher's window or command line.
     for path in (ROOT/'out/windows-data/launch.json',ROOT/'user/launcher.json'):
@@ -53,6 +53,8 @@ def read_preferences():
             preferences['controller_layout']=saved['controller_layout']
         if isinstance(saved.get('fps'),str) and saved['fps'] in FPS_CHOICES:
             preferences['fps']=saved['fps']
+        if saved.get('theme') in ('auto','light','dark'):
+            preferences['theme']=saved['theme']
     return preferences
 
 def save_preferences(preferences):
@@ -146,6 +148,12 @@ def launch(game,resolution=None,prepare_only=False,*,language=None,fullscreen=No
         command=[sys.executable,ROOT/'scripts'/script,game,'--out',data]
         if script in ('link_libc.py','link_modules.py'): command+=['--target','windows']
         execute(command,env)
+    if settings.get('upscaler')=='dlss':
+        selected=Path(settings.get('dlss_dir') or ROOT/'dlss').expanduser().resolve()
+        if not (selected/'nvngx_dlss.dll').is_file(): raise ValueError(f'DLSS DLL 不存在：{selected / "nvngx_dlss.dll"}')
+        env['BB_DLSS_DIR']=str(selected)
+        settings['preset']={'dlaa':'0','quality':'1','balanced':'2','performance':'3','custom':('4' if float(settings.get('dlss_scale','67'))<50 else '3' if float(settings.get('dlss_scale','67'))<58 else '1')}[settings.get('dlss_mode','quality')]
+        save_settings(config,{'preset':settings['preset']})
     sizes=scaled_sizes(settings)
     patch=[sys.executable,ROOT/'scripts/patches.py','--out',data,'--fps',fps,
            '--settings',config,'--game-dir',game]
@@ -181,69 +189,102 @@ def launch(game,resolution=None,prepare_only=False,*,language=None,fullscreen=No
 def gui(game_dir=None,resolution=None,language=None,fullscreen=None,controller_layout=None,fps=None):
     import tkinter as tk
     from tkinter import filedialog,messagebox,ttk
+    from windows_graphics_ui import (GraphicsPanel, configure_style, detect_system_theme,
+                                     enable_dpi_awareness, init_scale, px, ui_scale)
+    enable_dpi_awareness()
     root=tk.Tk()
     root.title('血源 · Windows 实验版')
-    from windows_graphics_ui import GraphicsPanel
-    root.geometry('780x620')
-    root.resizable(False,False)
-    outer=ttk.Frame(root,padding=20); outer.pack(fill='both',expand=True)
-    tabs=ttk.Notebook(outer); tabs.pack(fill='both',expand=True)
-    frame=ttk.Frame(tabs,padding=20); tabs.add(frame,text='启动')
-    initial_graphics=load_settings(ROOT/'bbport.ini')
-    graphics=GraphicsPanel(tabs,initial_graphics); tabs.add(graphics,text='画面设置')
-    ttk.Label(frame,text='血源 · Windows 实验版',font=('Microsoft YaHei UI',18)).pack(anchor='w')
-    ttk.Label(frame,text='支持 CUSA03173 / CUSA03023 的 1.09 已解密数据。').pack(anchor='w',pady=(12,16))
+    root.withdraw()
+    init_scale(root)
     preferences=read_preferences()
+    theme=preferences.get('theme','auto')
+    if theme not in ('light','dark'): theme=detect_system_theme()
+    palette=configure_style(root,theme)
+    icon_path=ROOT/'256x256.png'
+    if icon_path.is_file():
+        icon=tk.PhotoImage(file=str(icon_path))
+        root.iconphoto(True,icon)
+    outer=ttk.Frame(root,padding=px(20)); outer.pack(fill='both',expand=True)
+    header=ttk.Frame(outer); header.pack(fill='x',pady=(0,px(16)))
+    hero=tk.Label(header,borderwidth=0,background=palette['bg'])
+    hero.pack(side='left')
+    def hero_image(name):
+        suffix='@2x' if ui_scale()>=1.5 else ''
+        path=ROOT/'launcher_assets'/f'hero_{name}{suffix}.png'
+        return tk.PhotoImage(file=str(path)) if path.is_file() else None
+    titles=ttk.Frame(header); titles.pack(side='left',padx=(px(22),0),anchor='n')
+    ttk.Label(titles,text='血源',style='Title.TLabel').pack(anchor='w',pady=(px(8),0))
+    ttk.Label(titles,text='BLOODBORNE',style='Logo.TLabel').pack(anchor='w')
+    ttk.Label(titles,text='Windows 实验版',style='Muted.TLabel').pack(anchor='w',pady=(px(4),0))
+    theme_button=ttk.Button(header,command=lambda: toggle_theme())
+    theme_button.pack(side='right',anchor='n',pady=(px(8),0))
+    def apply_theme(name):
+        nonlocal palette
+        palette=configure_style(root,name)
+        image=hero_image(name)
+        if image is not None: hero.configure(image=image); hero.image=image
+        hero.configure(background=palette['bg'])
+        theme_button.configure(text='浅色模式' if name=='dark' else '深色模式')
+        preferences['theme']=name
+    def toggle_theme():
+        apply_theme('light' if preferences.get('theme','dark')=='dark' else 'dark')
+    apply_theme(theme)
+    tabs=ttk.Notebook(outer); tabs.pack(fill='both',expand=True)
+    frame=ttk.Frame(tabs,padding=(px(24),px(20))); tabs.add(frame,text='游戏启动')
+    initial_graphics=load_settings(ROOT/'bbport.ini')
+    graphics=GraphicsPanel(tabs,initial_graphics,notebook=tabs)
+    frame.columnconfigure(0,minsize=px(96))
+    frame.columnconfigure(1,weight=1)
+    ttk.Label(frame,text='游戏与启动',style='Section.TLabel').grid(row=0,column=0,columnspan=2,sticky='w')
+    ttk.Label(frame,text='游戏目录需包含 eboot.bin（1.09 已解密数据）。',style='Muted.TLabel').grid(
+        row=1,column=0,columnspan=2,sticky='w',pady=(px(5),px(18)))
     game=tk.StringVar(value=str(game_dir) if game_dir else preferences['game_dir'])
-    row=ttk.Frame(frame); row.pack(fill='x')
+    row=ttk.Frame(frame); row.grid(row=2,column=0,columnspan=2,sticky='ew')
     ttk.Entry(row,textvariable=game).pack(side='left',fill='x',expand=True)
     def pick():
         selected=filedialog.askdirectory(title='选择含 eboot.bin 的血源 1.09 游戏文件夹')
         if selected: game.set(selected)
-    ttk.Button(row,text='选择文件夹',command=pick).pack(side='right',padx=(8,0))
-    labels={'720p · 1280×720':'1280x720','1080p · 1920×1080':'1920x1080',
-            '1440p · 2560×1440':'2560x1440','4K · 3840×2160':'3840x2160'}
+    ttk.Button(row,text='选择文件夹',command=pick).pack(side='right',padx=(px(8),0))
     profile=resolution or preferences['resolution']
     output=PROFILES[profile][0] if resolution or not (ROOT/'bbport.ini').exists() else initial_graphics['output_res']
-    chosen=tk.StringVar(value=next(label for label,value in labels.items() if value==output))
-    ttk.Combobox(frame,textvariable=chosen,values=list(labels),state='readonly',width=36).pack(anchor='w',pady=16)
     if resolution or not (ROOT/'bbport.ini').exists():
         output,preset=PROFILES[profile]; graphics.set_profile(output,str(preset))
-    def update_profile(*_):
-        graphics.set_profile(labels[chosen.get()],graphics.values()['preset'])
-    chosen.trace_add('write',update_profile)
-    fps_options=ttk.Frame(frame); fps_options.pack(fill='x',pady=(0,12))
-    ttk.Label(fps_options,text='游戏帧率：').pack(side='left')
+    ttk.Label(frame,text='分辨率与 DLSS / FSR 档位在「画面质量」页设置。',style='Muted.TLabel').grid(
+        row=3,column=0,columnspan=2,sticky='w',pady=(px(10),px(22)))
+    ttk.Label(frame,text='游戏帧率').grid(row=4,column=0,sticky='w',pady=px(6))
     selected_fps=preferences['fps'] if fps is None else fps
     chosen_fps=tk.StringVar(value=next(label for label,value in FPS_LABELS.items() if value==selected_fps))
-    ttk.Combobox(fps_options,textvariable=chosen_fps,values=list(FPS_LABELS),state='readonly',width=34).pack(side='left')
-    options=ttk.Frame(frame); options.pack(fill='x',pady=(0,12))
-    ttk.Label(options,text='游戏语言：').pack(side='left')
+    ttk.Combobox(frame,textvariable=chosen_fps,values=list(FPS_LABELS),state='readonly',
+                 width=32).grid(row=4,column=1,sticky='w',pady=px(6))
     selection=preferences['language'] if language is None else language
     chosen_language=tk.StringVar(value=next(label for label,value in LANGUAGE_LABELS.items() if value==selection))
-    ttk.Combobox(options,textvariable=chosen_language,values=list(LANGUAGE_LABELS),
+    ttk.Label(frame,text='游戏语言').grid(row=5,column=0,sticky='w',pady=px(6))
+    language_row=ttk.Frame(frame); language_row.grid(row=5,column=1,sticky='w',pady=px(6))
+    ttk.Combobox(language_row,textvariable=chosen_language,values=list(LANGUAGE_LABELS),
                  state='readonly',width=20).pack(side='left')
     chosen_fullscreen=tk.BooleanVar(value=preferences['fullscreen'] if fullscreen is None else fullscreen)
-    ttk.Checkbutton(options,text='全屏运行',variable=chosen_fullscreen).pack(side='left',padx=(20,0))
-    controller_options=ttk.Frame(frame); controller_options.pack(fill='x',pady=(0,8))
-    ttk.Label(controller_options,text='手柄按键：').pack(side='left')
+    ttk.Checkbutton(language_row,text='全屏运行',variable=chosen_fullscreen).pack(side='left',padx=(px(18),0))
     layout=preferences['controller_layout'] if controller_layout is None else controller_layout
     chosen_controller=tk.StringVar(value=next(label for label,value in CONTROLLER_LABELS.items() if value==layout))
-    ttk.Combobox(controller_options,textvariable=chosen_controller,values=list(CONTROLLER_LABELS),
-                 state='readonly',width=28).pack(side='left')
+    ttk.Label(frame,text='手柄按键').grid(row=6,column=0,sticky='w',pady=px(6))
+    ttk.Combobox(frame,textvariable=chosen_controller,values=list(CONTROLLER_LABELS),
+                 state='readonly',width=32).grid(row=6,column=1,sticky='w',pady=px(6))
     controller_hint=tk.StringVar(value=CONTROLLER_HINTS[layout])
     def update_controller_hint(*_):
         controller_hint.set(CONTROLLER_HINTS[CONTROLLER_LABELS[chosen_controller.get()]])
     chosen_controller.trace_add('write',update_controller_hint)
-    ttk.Label(frame,textvariable=controller_hint).pack(anchor='w',pady=(0,12))
-    ttk.Label(frame,text='“画面设置”可调整 FSR、抗锯齿和游戏特效。').pack(anchor='w')
-    ttk.Label(frame,text='30 帧使用原版时序；90 帧与高刷新率为实验选项。').pack(anchor='w',pady=(8,0))
-    status=tk.StringVar(value='请选择已解密游戏文件夹。')
-    ttk.Label(outer,textvariable=status,wraplength=710).pack(anchor='w',pady=(12,0))
+    ttk.Label(frame,textvariable=controller_hint,style='Muted.TLabel').grid(
+        row=7,column=1,sticky='w',pady=(0,px(14)))
+    ttk.Separator(frame).grid(row=8,column=0,columnspan=2,sticky='ew',pady=px(8))
+    ttk.Label(frame,text='30 帧使用原版时序；90 帧与高刷新率为实验选项。',style='Muted.TLabel').grid(
+        row=9,column=0,columnspan=2,sticky='w',pady=(px(8),0))
+    status=tk.StringVar(value='启动游戏时会保存设置；画面修改在下次启动生效。')
+    ttk.Label(outer,textvariable=status,style='Muted.TLabel',wraplength=px(860)).pack(
+        anchor='w',pady=(px(12),0))
     process=None
     log_handle=None
     def save_choices():
-        output=labels[chosen.get()]
+        output=graphics.values()['output_res']
         profile={'1280x720':'1080p','1920x1080':'1080p','2560x1440':'1440p','3840x2160':'4k'}[output]
         preferences.update(game_dir=game.get(),resolution=profile,
                            language=LANGUAGE_LABELS[chosen_language.get()],fullscreen=chosen_fullscreen.get(),
@@ -298,10 +339,21 @@ def gui(game_dir=None,resolution=None,language=None,fullscreen=None,controller_l
         except (ValueError,OSError) as error:
             if log_handle: log_handle.close(); log_handle=None
             messagebox.showerror('无法启动',str(error))
-    buttons=ttk.Frame(outer); buttons.pack(fill='x',pady=(12,0))
+    buttons=ttk.Frame(outer); buttons.pack(fill='x',pady=(px(12),0))
     ttk.Button(buttons,text='保存设置',command=save_only).pack(side='left')
-    start_button=ttk.Button(buttons,text='启动游戏',command=start)
+    start_button=ttk.Button(buttons,text='保存并启动游戏',command=start,style='Primary.TButton')
     start_button.pack(side='right')
+    # Size the window to the tallest tab so no control is clipped, then show it.
+    root.update_idletasks()
+    need=root.winfo_reqheight()
+    for tab_id in tabs.tabs():
+        tabs.select(tab_id)
+        root.update_idletasks()
+        need=max(need,root.winfo_reqheight())
+    tabs.select(0)
+    root.geometry(f'{px(940)}x{max(px(760),need)}')
+    root.minsize(px(880),px(700))
+    root.deiconify()
     root.mainloop()
 
 def main():

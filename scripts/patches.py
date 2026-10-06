@@ -108,6 +108,15 @@ def scaled_sizes(settings):
     the game renders at output / preset scale (or at the output size without upscaler) and the
     upscaler fills the output. None at 1080p and for TAA (native, live host targets only)."""
     out=output_size(settings)
+    if settings.get('upscaler')=='dlss':
+        mode=settings.get('dlss_mode','quality')
+        ratio={'dlaa':1.0,'quality':2/3,'balanced':0.58,'performance':0.5}.get(mode)
+        if ratio is None:
+            ratio=float(settings.get('dlss_scale','67'))/100
+            if not 0.33<=ratio<=1.0: raise ValueError('DLSS custom scale must be 33..100 percent')
+        render=tuple(max(4,round(v*ratio/4)*4) for v in out)
+        if render==OUTPUT_SIZE and out!=OUTPUT_SIZE: render=(1924,1084) # Avoid UI recognition without undershooting DLSS minimum.
+        return render,out
     if out==OUTPUT_SIZE or settings.get('upscaler')=='taa': return None
     scale=1.0
     if settings.get('upscaler','fsr3')!='off':

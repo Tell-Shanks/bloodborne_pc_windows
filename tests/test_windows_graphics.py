@@ -117,7 +117,7 @@ class GraphicsSettingsTests(unittest.TestCase):
             config = Path(tmp) / 'bbport.ini'
             config.write_text('upscaler=fsr4\nfuture_renderer_option=keep-this\n', encoding='utf-8')
             original = config.read_bytes()
-            for invalid in ({'sharpness': -0.1}, {'preset': '5'}, {'upscaler': 'dlss'},
+            for invalid in ({'sharpness': -0.1}, {'preset': '5'}, {'upscaler': 'invalid-upscaler'},
                             {'effect_ssr': 'yes'}, {'future_renderer_option': 'value\nupscaler=off'},
                             {'bad=key': 'value'}, {'bad\nkey': 'value'}):
                 with self.subTest(invalid=invalid), self.assertRaises(ValueError):
